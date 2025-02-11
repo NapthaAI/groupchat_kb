@@ -5,7 +5,7 @@ import random
 from typing import Dict, Any
 from naptha_sdk.schemas import KBRunInput, KBDeployment
 from naptha_sdk.storage.schemas import CreateStorageRequest, ReadStorageRequest, ListStorageRequest, DeleteStorageRequest
-from naptha_sdk.storage.storage_provider import StorageProvider
+from naptha_sdk.storage.storage_client import StorageClient
 from naptha_sdk.user import sign_consumer_id
 from naptha_sdk.utils import get_logger
 
@@ -18,7 +18,7 @@ class GroupChatKB:
     def __init__(self, deployment: Dict[str, Any]):
         self.deployment = deployment
         self.config = self.deployment.config
-        self.storage_provider = StorageProvider(self.deployment.node)
+        self.storage_client = StorageClient(self.deployment.node)
         self.storage_type = self.config.storage_config.storage_type
         self.table_name = self.config.storage_config.path
         self.schema = self.config.storage_config.storage_schema
@@ -35,7 +35,7 @@ class GroupChatKB:
         if 'id' not in input_data:
             input_data['id'] = random.randint(1, 1000000)
 
-        read_result = await self.storage_provider.execute(ReadStorageRequest(
+        read_result = await self.storage_client.execute(ReadStorageRequest(
             storage_type=self.storage_type,
             path=self.table_name,
             options={"conditions": [{"run_id": input_data["run_id"]}]}
@@ -45,7 +45,7 @@ class GroupChatKB:
         if len(read_result.data) > 0:
             return {"status": "error", "message": f"Run {input_data['run_id']} already exists in table {self.table_name}"}
 
-        create_row_result = await self.storage_provider.execute(CreateStorageRequest(
+        create_row_result = await self.storage_client.execute(CreateStorageRequest(
             storage_type=self.storage_type,
             path=self.table_name,
             data={"data": input_data}
@@ -62,7 +62,7 @@ class GroupChatKB:
             path=self.table_name,
             options={"limit": input_data['limit'] if input_data and 'limit' in input_data else None}
         )
-        list_storage_result = await self.storage_provider.execute(list_storage_request)
+        list_storage_result = await self.storage_client.execute(list_storage_request)
         logger.info(f"List rows result: {list_storage_result}")
         return {"status": "success", "message": f"List rows result: {list_storage_result}"}
 
@@ -72,7 +72,7 @@ class GroupChatKB:
             storage_type=self.storage_type,
             path=input_data['table_name'],
         )
-        delete_table_result = await self.storage_provider.execute(delete_table_request)
+        delete_table_result = await self.storage_client.execute(delete_table_request)
         logger.info(f"Delete table result: {delete_table_result}")
         return {"status": "success", "message": f"Delete table result: {delete_table_result}"}
 
@@ -84,7 +84,7 @@ async def create(deployment: KBDeployment):
         deployment: Deployment configuration containing deployment details
     """
 
-    storage_provider = StorageProvider(deployment.node)
+    storage_client = StorageClient(deployment.node)
     storage_type = deployment.config.storage_config.storage_type
     table_name = deployment.config.storage_config.path
     schema = {"schema": deployment.config.storage_config.storage_schema}
@@ -98,7 +98,7 @@ async def create(deployment: KBDeployment):
     )
 
     # Create a table
-    create_table_result = await storage_provider.execute(create_table_request)
+    create_table_result = await storage_client.execute(create_table_request)
 
     logger.info(f"Result: {create_table_result}")
 
